@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+docrag.db
+chroma_db/
+uploads/
+.venv/
+venv/

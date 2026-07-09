@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>DocRAG — AI Document Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0d0f14;--surface:#161820;--surface2:#1e2029;--surface3:#252836;
+  --border:#2a2d3a;--border2:#353849;
+  --accent:#6c63ff;--accent2:#a78bfa;--accent3:#c4b5fd;
+  --text:#e8eaf0;--text2:#b0b3c1;--muted:#7c7f8e;
+  --success:#22c55e;--danger:#ef4444;--warning:#f59e0b;--info:#38bdf8;
+  --radius:14px;--radius-sm:8px;--radius-lg:20px;
+  --shadow:0 4px 24px rgba(0,0,0,.4);
+}
+[data-theme="light"]{
+  --bg:#f1f3f9;--surface:#ffffff;--surface2:#f8f9fc;--surface3:#eef0f7;
+  --border:#dde1ef;--border2:#c8ccde;--text:#1a1d2e;--text2:#4a4e6a;--muted:#8b8fa8;
+  --shadow:0 4px 24px rgba(0,0,0,.08);
+}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:99px}
+
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 60% 20%,#1a1040 0%,var(--bg) 60%);padding:1rem}
+[data-theme="light"] .auth-wrap{background:radial-gradient(ellipse at 60% 20%,#e8e4ff 0%,var(--bg) 60%)}
+.auth-box{width:100%;max-width:430px;padding:2.5rem;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:2rem}
+.brand-icon{width:46px;height:46px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 20px rgba(108,99,255,.35);flex-shrink:0}
+.brand-name{font-size:21px;font-weight:700;background:linear-gradient(135deg,var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.brand-sub{font-size:11px;color:var(--muted)}
+.auth-title{font-size:22px;font-weight:700;margin-bottom:4px}
+.auth-sub{font-size:13px;color:var(--muted);margin-bottom:1.5rem}
+.field{margin-bottom:1rem}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em}
+.field input{width:100%;padding:11px 14px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:all .2s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.12)}
+.btn-primary{width:100%;padding:13px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s;box-shadow:0 4px 14px rgba(108,99,255,.35);margin-top:4px}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(108,99,255,.5)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.auth-toggle{font-size:13px;color:var(--muted);text-align:center;margin-top:14px}
+.auth-toggle span{color:var(--accent2);cursor:pointer;font-weight:600}
+.err-box{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;padding:10px 13px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;display:none}
+.ok-box{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;padding:10px 13px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;display:none}
+
+/* LAYOUT */
+#dashboard{display:none}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.5rem;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:0;z-index:100}
+.topbar-l{display:flex;align-items:center;gap:10px}
+.t-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.t-title{font-size:16px;font-weight:700;background:linear-gradient(135deg,var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.topbar-r{display:flex;align-items:center;gap:8px}
+.icon-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.icon-btn:hover{border-color:var(--accent)}
+.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;cursor:pointer;border:2px solid transparent;transition:all .2s;flex-shrink:0}
+.avatar:hover{border-color:var(--accent2)}
+.uname{font-size:13px;color:var(--text2);font-weight:500;display:none}
+.logout-btn{padding:6px 13px;background:none;border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--muted);font-size:12px;font-family:inherit;cursor:pointer;transition:all .2s;white-space:nowrap}
+.logout-btn:hover{border-color:var(--danger);color:#fca5a5}
+
+/* RESPONSIVE SIDEBAR */
+.app-body{display:flex;min-height:calc(100vh - 57px)}
+.sidebar{width:200px;border-right:1px solid var(--border);background:var(--surface);padding:1rem .6rem;flex-shrink:0;position:sticky;top:57px;height:calc(100vh - 57px);overflow-y:auto;transition:all .3s}
+.nav-lbl{font-size:9px;font-weight:700;letter-spacing:.1em;color:var(--muted);text-transform:uppercase;padding:.4rem .75rem;margin-bottom:2px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:var(--radius-sm);cursor:pointer;font-size:13px;font-weight:500;color:var(--text2);transition:all .2s;margin-bottom:2px}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:rgba(108,99,255,.15);color:var(--accent2)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.main{flex:1;padding:1.5rem;overflow-y:auto;min-width:0}
+
+/* MOBILE NAV */
+.mob-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);padding:.5rem;z-index:100;justify-content:space-around}
+.mob-nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 10px;border-radius:var(--radius-sm);cursor:pointer;font-size:10px;color:var(--muted);transition:all .2s;flex:1}
+.mob-nav-item.active{color:var(--accent2);background:rgba(108,99,255,.1)}
+.mob-nav-item span{font-size:18px}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:1.5rem}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;text-align:center;transition:all .2s}
+.stat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.stat-icon{font-size:24px;margin-bottom:6px}
+.stat-val{font-size:26px;font-weight:700;background:linear-gradient(135deg,var(--accent2),var(--accent3));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:3px}
+
+/* SECTION */
+.sec-title{font-size:17px;font-weight:700;margin-bottom:4px}
+.sec-sub{font-size:13px;color:var(--muted);margin-bottom:1.25rem}
+.sec-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;gap:8px;flex-wrap:wrap}
+
+/* UPLOAD */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--radius);padding:2rem;text-align:center;cursor:pointer;transition:all .2s;margin-bottom:1.25rem;background:var(--surface);position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(108,99,255,.04)}
+.u-icon{font-size:36px;margin-bottom:8px}
+.u-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.u-sub{font-size:12px;color:var(--muted)}
+#file-input{display:none}
+
+/* LOADING OVERLAY */
+.loading-overlay{display:none;position:absolute;inset:0;background:rgba(13,15,20,.85);border-radius:var(--radius);flex-direction:column;align-items:center;justify-content:center;gap:12px;z-index:10}
+.loading-overlay.show{display:flex}
+.loading-spinner{width:40px;height:40px;border:3px solid var(--border2);border-top-color:var(--accent2);border-radius:50%;animation:spin .8s linear infinite}
+.loading-text{font-size:13px;color:var(--text2);font-weight:500}
+.loading-steps{font-size:11px;color:var(--muted)}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* DOC CARDS */
+.doc-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:12px;transition:all .2s}
+.doc-card:hover{border-color:var(--border2)}
+.doc-hdr{display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.doc-ico{width:38px;height:38px;background:rgba(239,68,68,.15);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.doc-info{flex:1;min-width:0}
+.doc-fname{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.doc-actions{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.badge{padding:3px 9px;border-radius:99px;font-size:10px;font-weight:600}
+.badge-ok{background:rgba(34,197,94,.15);color:var(--success)}
+.act-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;border:1px solid;transition:all .2s;white-space:nowrap}
+.btn-preview{background:rgba(56,189,248,.08);border-color:rgba(56,189,248,.3);color:var(--info)}
+.btn-dl{background:rgba(108,99,255,.08);border-color:rgba(108,99,255,.3);color:var(--accent2)}
+.btn-del{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3);color:#fca5a5}
+.act-btn:hover{opacity:.8;transform:translateY(-1px)}
+.pdf-iframe{width:100%;height:460px;border:none;border-radius:9px;margin-top:10px;background:var(--surface3);display:none}
+.sum-box{background:var(--surface2);border-radius:10px;padding:13px}
+.s-lbl{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.07em;text-transform:uppercase;margin-bottom:7px}
+.sum-txt{font-size:13px;line-height:1.75;color:var(--text2)}
+.pts-list{list-style:none;margin-top:9px;display:flex;flex-direction:column;gap:6px}
+.pts-list li{font-size:13px;color:var(--text2);display:flex;align-items:flex-start;gap:9px;line-height:1.6}
+.pts-list li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--accent2);flex-shrink:0;margin-top:7px}
+
+/* CHAT */
+.chat-wrap{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;display:flex;flex-direction:column;height:calc(100vh - 220px);min-height:400px}
+.chat-hdr{padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.chat-hdr-ico{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.chat-msgs{flex:1;padding:1rem 1.25rem;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:80%;padding:11px 15px;border-radius:13px;font-size:13px;line-height:1.7;word-break:break-word}
+.msg-user{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;align-self:flex-end;border-bottom-right-radius:3px}
+.msg-ai{background:var(--surface2);color:var(--text);align-self:flex-start;border-bottom-left-radius:3px;border:1px solid var(--border)}
+.msg-src{font-size:11px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border2)}
+.chat-foot{padding:.85rem 1.25rem;border-top:1px solid var(--border);display:flex;gap:8px;flex-shrink:0}
+.chat-foot input{flex:1;padding:10px 13px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:all .2s;min-width:0}
+.chat-foot input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.1)}
+.send-btn{padding:10px 18px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;white-space:nowrap;transition:opacity .2s;flex-shrink:0}
+.send-btn:hover{opacity:.9}
+.send-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* SEARCH */
+.search-row{display:flex;gap:8px;margin-bottom:1.1rem}
+.search-row input{flex:1;padding:11px 14px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:all .2s;min-width:0}
+.search-row input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(108,99,255,.1)}
+.s-result{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;margin-bottom:9px}
+.s-fname{font-size:12px;font-weight:600;color:var(--accent2);margin-bottom:6px}
+.s-snippet{font-size:13px;color:var(--text2);line-height:1.65}
+
+/* HISTORY */
+.hist-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;margin-bottom:10px}
+.hist-q{font-size:13px;font-weight:600;color:var(--accent2);margin-bottom:7px}
+.hist-a{font-size:13px;color:var(--text2);line-height:1.7}
+.hist-meta{font-size:11px;color:var(--muted);margin-top:7px;padding-top:7px;border-top:1px solid var(--border);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
+
+/* PROFILE */
+.prof-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.75rem;margin-bottom:1.25rem}
+.prof-av{width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:700;color:white;margin-bottom:.9rem;box-shadow:0 0 22px rgba(108,99,255,.35)}
+.prof-name{font-size:20px;font-weight:700;margin-bottom:3px}
+.prof-email{font-size:13px;color:var(--muted);margin-bottom:1.25rem}
+.edit-sec{border-top:1px solid var(--border);padding-top:1.25rem}
+.edit-title{font-size:14px;font-weight:600;margin-bottom:1rem}
+.save-btn{padding:10px 22px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;border:none;border-radius:var(--radius-sm);font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;transition:all .2s}
+.save-btn:hover{opacity:.9}
+
+/* QUICK ACTIONS */
+.qa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:1rem}
+.qa-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1.1rem;cursor:pointer;transition:all .2s;text-align:center}
+.qa-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 6px 20px rgba(108,99,255,.12)}
+.qa-icon{font-size:26px;margin-bottom:7px}
+.qa-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.qa-sub{font-size:11px;color:var(--muted)}
+
+/* MISC */
+.empty{text-align:center;padding:2.5rem;color:var(--muted);font-size:13px}
+.empty-icon{font-size:36px;margin-bottom:10px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+.spinner-d{border:2px solid var(--border2);border-top-color:var(--accent)}
+.clear-btn{padding:7px 14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);color:#fca5a5;border-radius:var(--radius-sm);font-size:12px;font-family:inherit;cursor:pointer;transition:all .2s}
+.clear-btn:hover{background:rgba(239,68,68,.15)}
+.dl-hist-btn{padding:7px 14px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.25);color:var(--accent2);border-radius:var(--radius-sm);font-size:12px;font-family:inherit;cursor:pointer;transition:all .2s}
+.dl-hist-btn:hover{background:rgba(108,99,255,.2)}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .mob-nav{display:flex}
+  .main{padding:1rem;padding-bottom:70px}
+  .stats-grid{grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat-val{font-size:20px}
+  .stat-icon{font-size:18px}
+  .uname{display:none!important}
+  .chat-wrap{height:calc(100vh - 180px)}
+  .msg{max-width:90%}
+  .doc-actions{margin-left:0;margin-top:6px}
+  .topbar{padding:.7rem 1rem}
+}
+@media(min-width:769px){
+  .uname{display:block}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" class="auth-wrap">
+  <div class="auth-box">
+    <div class="brand"><div class="brand-icon">🧠</div><div><div class="brand-name">DocRAG</div><div class="brand-sub">AI-Powered Document Analyzer</div></div></div>
+    <div class="auth-title">Welcome back 👋</div>
+    <div class="auth-sub">Sign in to continue</div>
+    <div class="err-box" id="login-err"></div>
+    <div class="field"><label>Email</label><input id="login-email" type="email" placeholder="you@example.com"/></div>
+    <div class="field"><label>Password</label><input id="login-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <button class="btn-primary" id="login-btn" onclick="doLogin()">Sign In →</button>
+    <div class="auth-toggle">No account? <span onclick="showReg()">Create one free</span></div>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div id="reg-screen" class="auth-wrap" style="display:none">
+  <div class="auth-box">
+    <div class="brand"><div class="brand-icon">🧠</div><div><div class="brand-name">DocRAG</div><div class="brand-sub">AI-Powered Document Analyzer</div></div></div>
+    <div class="auth-title">Create account ✨</div>
+    <div class="auth-sub">Start for free — no credit card needed</div>
+    <div class="err-box" id="reg-err"></div>
+    <div class="field"><label>Full Name</label><input id="reg-name" type="text" placeholder="Your name"/></div>
+    <div class="field"><label>Email</label><input id="reg-email" type="email" placeholder="you@example.com"/></div>
+    <div class="field"><label>Password</label><input id="reg-pass" type="password" placeholder="Min 6 characters" onkeydown="if(event.key==='Enter')doReg()"/></div>
+    <button class="btn-primary" id="reg-btn" onclick="doReg()">Create Account →</button>
+    <div class="auth-toggle">Have an account? <span onclick="showLogin()">Sign in</span></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-l">
+      <div class="t-icon">🧠</div>
+      <div class="t-title">DocRAG</div>
+    </div>
+    <div class="topbar-r">
+      <button class="icon-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle theme">🌙</button>
+      <div class="avatar" id="user-av" onclick="switchPage('profile')">U</div>
+      <span class="uname" id="uname"></span>
+      <button class="logout-btn" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="app-body">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="nav-lbl">Main</div>
+      <div class="nav-item active" onclick="switchPage('home')" id="nav-home"><span class="nav-icon">🏠</span>Dashboard</div>
+      <div class="nav-item" onclick="switchPage('docs')" id="nav-docs"><span class="nav-icon">📄</span>Documents</div>
+      <div class="nav-item" onclick="switchPage('chat')" id="nav-chat"><span class="nav-icon">💬</span>Ask AI</div>
+      <div class="nav-item" onclick="switchPage('search')" id="nav-search"><span class="nav-icon">🔍</span>Search</div>
+      <div class="nav-item" onclick="switchPage('history')" id="nav-history"><span class="nav-icon">🕘</span>History</div>
+      <div class="nav-lbl" style="margin-top:.75rem">Account</div>
+      <div class="nav-item" onclick="switchPage('profile')" id="nav-profile"><span class="nav-icon">👤</span>Profile</div>
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main">
+
+      <!-- HOME PAGE -->
+      <div id="page-home">
+        <div class="sec-title">Welcome, <span id="welcome-name"></span> 👋</div>
+        <div class="sec-sub">Your AI document workspace</div>
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val" id="s-docs">0</div><div class="stat-lbl">Docs Uploaded</div></div>
+          <div class="stat-card"><div class="stat-icon">💬</div><div class="stat-val" id="s-q">0</div><div class="stat-lbl">AI Queries</div></div>
+          <div class="stat-card"><div class="stat-icon">📖</div><div class="stat-val" id="s-pg">0</div><div class="stat-lbl">Pages Analyzed</div></div>
+        </div>
+        <div class="sec-title" style="font-size:14px;margin-bottom:.75rem">Quick Actions</div>
+        <div class="qa-grid">
+          <div class="qa-card" onclick="switchPage('docs')"><div class="qa-icon">📤</div><div class="qa-title">Upload PDF</div><div class="qa-sub">Add new document</div></div>
+          <div class="qa-card" onclick="switchPage('chat')"><div class="qa-icon">🤖</div><div class="qa-title">Ask AI</div><div class="qa-sub">Query your docs</div></div>
+          <div class="qa-card" onclick="switchPage('search')"><div class="qa-icon">🔍</div><div class="qa-title">Search</div><div class="qa-sub">Find keywords</div></div>
+          <div class="qa-card" onclick="switchPage('history')"><div class="qa-icon">🕘</div><div class="qa-title">History</div><div class="qa-sub">Past queries</div></div>
+        </div>
+      </div>
+
+      <!-- DOCUMENTS PAGE -->
+      <div id="page-docs" style="display:none">
+        <div class="sec-title">📄 Documents</div>
+        <div class="sec-sub">Upload PDFs — AI will generate summary & key points instantly</div>
+        <div class="upload-zone" id="upload-zone" onclick="document.getElementById('file-input').click()">
+          <input type="file" id="file-input" accept=".pdf" multiple onchange="handleUpload(event)"/>
+          <div class="loading-overlay" id="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text" id="loading-text">Analyzing PDF...</div>
+            <div class="loading-steps" id="loading-steps">Extracting text</div>
+          </div>
+          <div class="u-icon">📤</div>
+          <div class="u-title">Upload PDF documents</div>
+          <div class="u-sub">Click or drag & drop · Multiple PDFs supported · Max 10MB</div>
+        </div>
+        <div id="doc-list"><div class="empty"><div class="empty-icon">📂</div>No documents — upload a PDF above</div></div>
+      </div>
+
+      <!-- CHAT PAGE -->
+      <div id="page-chat" style="display:none">
+        <div class="sec-title">💬 Ask AI</div>
+        <div class="sec-sub">Ask questions — AI searches your uploaded PDFs</div>
+        <div class="chat-wrap">
+          <div class="chat-hdr">
+            <div class="chat-hdr-ico">🤖</div>
+            <div><div style="font-size:14px;font-weight:600">RAG Assistant</div><div style="font-size:11px;color:var(--muted)">Powered by LLaMA 3.3 70B · Groq</div></div>
+          </div>
+          <div class="chat-msgs" id="chat-msgs">
+            <div class="msg msg-ai">👋 Hi! Upload some PDFs from the Documents tab, then ask me anything about them. I'll search through all your documents to give you accurate answers!</div>
+          </div>
+          <div class="chat-foot">
+            <input type="text" id="chat-in" placeholder="Ask anything about your documents..." onkeydown="if(event.key==='Enter'&&!event.shiftKey)doQuery()"/>
+            <button class="send-btn" id="send-btn" onclick="doQuery()">Send ↑</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEARCH PAGE -->
+      <div id="page-search" style="display:none">
+        <div class="sec-title">🔍 Search Documents</div>
+        <div class="sec-sub">Find specific keywords inside your uploaded PDFs</div>
+        <div class="search-row">
+          <input type="text" id="search-in" placeholder="Enter keyword..." onkeydown="if(event.key==='Enter')doSearch()"/>
+          <button class="send-btn" onclick="doSearch()">Search</button>
+        </div>
+        <div id="search-res"><div class="empty"><div class="empty-icon">🔍</div>Enter a keyword above to search</div></div>
+      </div>
+
+      <!-- HISTORY PAGE -->
+      <div id="page-history" style="display:none">
+        <div class="sec-row">
+          <div><div class="sec-title">🕘 Chat History</div><div class="sec-sub">All previous AI conversations</div></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="dl-hist-btn" onclick="downloadHistory()">⬇ Export</button>
+            <button class="clear-btn" onclick="clearHistory()">🗑 Clear</button>
+          </div>
+        </div>
+        <div id="hist-list"><div class="empty"><div class="empty-icon">🕘</div>No history yet — ask AI some questions!</div></div>
+      </div>
+
+      <!-- PROFILE PAGE -->
+      <div id="page-profile" style="display:none">
+        <div class="sec-title">👤 Profile</div>
+        <div class="sec-sub">Manage your account</div>
+        <div class="prof-card">
+          <div class="prof-av" id="prof-av">U</div>
+          <div class="prof-name" id="prof-name"></div>
+          <div class="prof-email" id="prof-email"></div>
+          <div class="stats-grid" style="margin-bottom:0">
+            <div class="stat-card"><div class="stat-icon">📄</div><div class="stat-val" id="p-docs">0</div><div class="stat-lbl">Docs</div></div>
+            <div class="stat-card"><div class="stat-icon">💬</div><div class="stat-val" id="p-q">0</div><div class="stat-lbl">Queries</div></div>
+            <div class="stat-card"><div class="stat-icon">📖</div><div class="stat-val" id="p-pg">0</div><div class="stat-lbl">Pages</div></div>
+          </div>
+          <div class="edit-sec">
+            <div class="edit-title">✏️ Edit Profile</div>
+            <div class="ok-box" id="prof-ok"></div>
+            <div class="err-box" id="prof-err"></div>
+            <div class="field"><label>Full Name</label><input id="edit-name" type="text"/></div>
+            <div class="field"><label>New Password <span style="color:var(--muted);font-weight:400;text-transform:none">(leave blank to keep)</span></label><input id="edit-pass" type="password" placeholder="New password"/></div>
+            <button class="save-btn" onclick="saveProfile()">Save Changes</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <div class="mob-nav">
+    <div class="mob-nav-item active" onclick="switchPage('home')" id="mnav-home"><span>🏠</span>Home</div>
+    <div class="mob-nav-item" onclick="switchPage('docs')" id="mnav-docs"><span>📄</span>Docs</div>
+    <div class="mob-nav-item" onclick="switchPage('chat')" id="mnav-chat"><span>💬</span>Ask AI</div>
+    <div class="mob-nav-item" onclick="switchPage('search')" id="mnav-search"><span>🔍</span>Search</div>
+    <div class="mob-nav-item" onclick="switchPage('profile')" id="mnav-profile"><span>👤</span>Profile</div>
+  </div>
+</div>
+
+<script>
+const API="";
+let token="",userEmail="",userName="";
+let docs=[];
+let dark=true;
+
+// ── THEME ─────────────────────────────────────────
+function toggleTheme(){
+  dark=!dark;
+  document.body.setAttribute("data-theme",dark?"":"light");
+  document.getElementById("theme-btn").textContent=dark?"🌙":"☀️";
+}
+
+// ── AUTH ──────────────────────────────────────────
+function showReg(){document.getElementById("login-screen").style.display="none";document.getElementById("reg-screen").style.display="flex";}
+function showLogin(){document.getElementById("reg-screen").style.display="none";document.getElementById("login-screen").style.display="flex";}
+
+async function doReg(){
+  const name=document.getElementById("reg-name").value.trim();
+  const email=document.getElementById("reg-email").value.trim();
+  const pass=document.getElementById("reg-pass").value.trim();
+  const err=document.getElementById("reg-err"),btn=document.getElementById("reg-btn");
+  err.style.display="none";
+  if(!name||!email||!pass){showErr(err,"All fields required");return;}
+  if(pass.length<6){showErr(err,"Password min 6 characters");return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Creating...';
+  try{
+    const res=await fetch(`${API}/register`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,email,password:pass})});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.detail||"Failed");
+    token=d.token;userEmail=email;userName=d.name;
+    localStorage.setItem("docrag_token",token);
+    localStorage.setItem("docrag_email",userEmail);
+    localStorage.setItem("docrag_name",userName);
+    boot();
+  }catch(e){showErr(err,e.message);}
+  btn.disabled=false;btn.textContent="Create Account →";
+}
+
+async function doLogin(){
+  const email=document.getElementById("login-email").value.trim();
+  const pass=document.getElementById("login-pass").value.trim();
+  const err=document.getElementById("login-err"),btn=document.getElementById("login-btn");
+  err.style.display="none";
+  if(!email||!pass){showErr(err,"Please enter email and password");return;}
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span> Signing in...';
+  try{
+    const res=await fetch(`${API}/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password:pass})});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.detail||"Failed");
+    token=d.token;userEmail=email;userName=d.name;
+    localStorage.setItem("docrag_token",token);
+    localStorage.setItem("docrag_email",userEmail);
+    localStorage.setItem("docrag_name",userName);
+    boot();
+  }catch(e){showErr(err,e.message);}
+  btn.disabled=false;btn.textContent="Sign In →";
+}
+
+function boot(){
+  const initials=userName.slice(0,2).toUpperCase();
+  document.getElementById("user-av").textContent=initials;
+  document.getElementById("uname").textContent=userName;
+  document.getElementById("welcome-name").textContent=userName;
+  document.getElementById("prof-av").textContent=initials;
+  document.getElementById("prof-name").textContent=userName;
+  document.getElementById("prof-email").textContent=userEmail;
+  document.getElementById("edit-name").value=userName;
+  document.getElementById("login-screen").style.display="none";
+  document.getElementById("reg-screen").style.display="none";
+  document.getElementById("dashboard").style.display="block";
+  loadStats();
+  loadDocuments();
+}
+
+function doLogout(){
+  localStorage.removeItem("docrag_token");
+  localStorage.removeItem("docrag_email");
+  localStorage.removeItem("docrag_name");
+  token="";userEmail="";userName="";docs=[];
+  document.getElementById("dashboard").style.display="none";
+  document.getElementById("login-screen").style.display="flex";
+  document.getElementById("doc-list").innerHTML='<div class="empty"><div class="empty-icon">📂</div>No documents — upload a PDF above</div>';
+  document.getElementById("chat-msgs").innerHTML='<div class="msg msg-ai">👋 Hi! Upload some PDFs then ask me anything about them!</div>';
+  document.getElementById("login-email").value="";document.getElementById("login-pass").value="";
+}
+
+// ── NAVIGATION ────────────────────────────────────
+const PAGES=["home","docs","chat","search","history","profile"];
+function switchPage(p){
+  PAGES.forEach(x=>{
+    const el=document.getElementById("page-"+x);
+    if(el)el.style.display=x===p?"block":"none";
+    const n=document.getElementById("nav-"+x);
+    if(n)n.classList.toggle("active",x===p);
+    const m=document.getElementById("mnav-"+x);
+    if(m)m.classList.toggle("active",x===p);
+  });
+  if(p==="history")loadHistory();
+  if(p==="profile")loadStats();
+  if(p==="home")loadStats();
+  if(p==="docs")loadDocuments();
+}
+
+// ── STATS ─────────────────────────────────────────
+async function loadStats(){
+  if(!token)return;
+  try{
+    const res=await fetch(`${API}/stats`,{headers:{"Authorization":`Bearer ${token}`}});
+    const s=await res.json();
+    ["docs","q","pg"].forEach((k,i)=>{
+      const v=[s.total_docs,s.total_queries,s.total_pages][i]||0;
+      document.getElementById("s-"+k).textContent=v;
+      document.getElementById("p-"+k).textContent=v;
+    });
+  }catch(e){}
+}
+
+// ── UPLOAD ────────────────────────────────────────
+const loadingMsgs=[
+  ["Reading PDF...","Extracting text from pages"],
+  ["Processing...","Chunking document for RAG"],
+  ["Storing in ChromaDB...","Indexing document vectors"],
+  ["Generating AI Summary...","LLaMA 3.3 analyzing content"],
+  ["Almost done...","Preparing key points"]
+];
+
+async function handleUpload(e){
+  const files=Array.from(e.target.files);
+  if(!files.length)return;
+  const overlay=document.getElementById("loading-overlay");
+  const ltxt=document.getElementById("loading-text");
+  const lstep=document.getElementById("loading-steps");
+  overlay.classList.add("show");
+
+  // Animate loading steps
+  let step=0;
+  const interval=setInterval(()=>{
+    if(step<loadingMsgs.length){
+      ltxt.textContent=loadingMsgs[step][0];
+      lstep.textContent=loadingMsgs[step][1];
+      step++;
+    }
+  },1200);
+
+  for(const file of files){
+    const fd=new FormData();fd.append("file",file);
+    try{
+      const res=await fetch(`${API}/upload`,{method:"POST",headers:{"Authorization":`Bearer ${token}`},body:fd});
+      const d=await res.json();
+      if(!res.ok)throw new Error(d.detail||"Upload failed");
+    }catch(e){alert("❌ "+e.message);}
+  }
+  clearInterval(interval);
+  overlay.classList.remove("show");
+  e.target.value="";
+  loadStats();
+  loadDocuments();
+}
+
+async function loadDocuments(){
+  if(!token)return;
+  try{
+    const res=await fetch(`${API}/documents`,{headers:{"Authorization":`Bearer ${token}`}});
+    const d=await res.json();
+    if(!res.ok)return;
+    docs=d.documents||[];
+    renderDocs();
+  }catch(e){}
+}
+
+function renderDocs(){
+  const list=document.getElementById("doc-list");
+  if(!docs.length){list.innerHTML='<div class="empty"><div class="empty-icon">📂</div>No documents — upload a PDF above</div>';return;}
+  list.innerHTML=docs.map((d,i)=>`
+    <div class="doc-card">
+      <div class="doc-hdr">
+        <div class="doc-ico">📕</div>
+        <div class="doc-info">
+          <div class="doc-fname" title="${d.filename}">${d.filename}</div>
+          <div class="doc-meta">${d.pages} pages · ${d.size_kb}KB · Uploaded ${d.created_at||""}</div>
+        </div>
+        <div class="doc-actions">
+          <span class="badge badge-ok">✓ Indexed</span>
+          <button class="act-btn btn-preview" onclick="togglePreview(${i},this)">👁 Preview</button>
+          <button class="act-btn btn-dl" onclick="dlSummary(${i})">⬇ Summary</button>
+          <button class="act-btn btn-del" onclick="delDoc(${i})">🗑</button>
+        </div>
+      </div>
+      <iframe id="prev-${i}" class="pdf-iframe"></iframe>
+      <div class="sum-box">
+        <div class="s-lbl">📝 Summary</div>
+        <div class="sum-txt">${d.summary}</div>
+        <div class="s-lbl" style="margin-top:11px">🔑 Key Points</div>
+        <ul class="pts-list">${d.points.map(p=>`<li>${p}</li>`).join("")}</ul>
+      </div>
+    </div>`).join("");
+}
+
+function togglePreview(i,btn){
+  const iframe=document.getElementById(`prev-${i}`);
+  const show=iframe.style.display!=="block";
+  iframe.style.display=show?"block":"none";
+  btn.textContent=show?"🙈 Hide":"👁 Preview";
+  if(show){
+    iframe.src=`${API}/documents/${docs[i].doc_id}/file?token=${encodeURIComponent(token)}`;
+  }
+}
+
+function dlSummary(i){
+  const d=docs[i];
+  const txt=`DocRAG Summary Report\n${"=".repeat(45)}\nFile: ${d.filename}\nPages: ${d.pages}\nSize: ${d.size_kb}KB\n\nSUMMARY\n${"─".repeat(45)}\n${d.summary}\n\nKEY POINTS\n${"─".repeat(45)}\n${d.points.map((p,j)=>`${j+1}. ${p}`).join("\n")}\n\n${"─".repeat(45)}\nGenerated by DocRAG · Powered by LLaMA 3.3 70B`;
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
+  a.download=d.filename.replace(".pdf","")+"_summary.txt";a.click();
+}
+
+async function delDoc(i){
+  if(!confirm("Delete this document permanently?"))return;
+  const docId=docs[i].doc_id;
+  try{
+    const res=await fetch(`${API}/documents/${docId}`,{method:"DELETE",headers:{"Authorization":`Bearer ${token}`}});
+    if(!res.ok){const d=await res.json();throw new Error(d.detail||"Delete failed");}
+    docs.splice(i,1);renderDocs();
+    loadStats();
+  }catch(e){alert("❌ "+e.message);}
+}
+
+// ── CHAT ──────────────────────────────────────────
+async function doQuery(){
+  const q=document.getElementById("chat-in").value.trim();
+  if(!q)return;
+  const btn=document.getElementById("send-btn");
+  const msgs=document.getElementById("chat-msgs");
+  msgs.innerHTML+=`<div class="msg msg-user">${q}</div>`;
+  msgs.innerHTML+=`<div class="msg msg-ai" id="typing"><span class="spinner spinner-d"></span> Thinking...</div>`;
+  msgs.scrollTop=msgs.scrollHeight;
+  document.getElementById("chat-in").value="";
+  btn.disabled=true;btn.textContent="...";
+  try{
+    const res=await fetch(`${API}/query`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({question:q})});
+    const d=await res.json();
+    document.getElementById("typing")?.remove();
+    if(!res.ok)throw new Error(d.detail||"Failed");
+    msgs.innerHTML+=`<div class="msg msg-ai">${d.answer}<div class="msg-src">📄 Sources: ${d.sources.join(", ")}</div></div>`;
+  }catch(e){
+    document.getElementById("typing")?.remove();
+    msgs.innerHTML+=`<div class="msg msg-ai" style="color:#fca5a5">❌ ${e.message}</div>`;
+  }
+  msgs.scrollTop=msgs.scrollHeight;
+  btn.disabled=false;btn.textContent="Send ↑";
+  loadStats();
+}
+
+// ── SEARCH ────────────────────────────────────────
+async function doSearch(){
+  const kw=document.getElementById("search-in").value.trim();
+  if(!kw)return;
+  const res_div=document.getElementById("search-res");
+  res_div.innerHTML='<div class="empty"><span class="spinner spinner-d"></span> Searching...</div>';
+  try{
+    const res=await fetch(`${API}/search`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify({keyword:kw})});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.detail);
+    if(!d.results.length){res_div.innerHTML=`<div class="empty"><div class="empty-icon">🔍</div>No results for "<strong>${kw}</strong>"</div>`;return;}
+    res_div.innerHTML=`<div style="font-size:12px;color:var(--muted);margin-bottom:10px">${d.results.length} result(s) for "<strong style="color:var(--accent2)">${kw}</strong>"</div>`+
+      d.results.map(r=>`<div class="s-result"><div class="s-fname">📄 ${r.filename}</div><div class="s-snippet">${r.snippet}...</div></div>`).join("");
+  }catch(e){res_div.innerHTML=`<div class="empty">❌ ${e.message}</div>`;}
+}
+
+// ── HISTORY ───────────────────────────────────────
+async function loadHistory(){
+  if(!token)return;
+  try{
+    const res=await fetch(`${API}/history`,{headers:{"Authorization":`Bearer ${token}`}});
+    const d=await res.json();
+    const list=document.getElementById("hist-list");
+    if(!d.history.length){list.innerHTML='<div class="empty"><div class="empty-icon">🕘</div>No history yet</div>';return;}
+    list.innerHTML=d.history.map(h=>`
+      <div class="hist-item">
+        <div class="hist-q">❓ ${h.question}</div>
+        <div class="hist-a">${h.answer}</div>
+        <div class="hist-meta"><span>📄 ${h.sources.join(", ")}</span><span>🕐 ${h.created_at}</span></div>
+      </div>`).join("");
+  }catch(e){}
+}
+
+async function clearHistory(){
+  if(!confirm("Clear all chat history?"))return;
+  await fetch(`${API}/history`,{method:"DELETE",headers:{"Authorization":`Bearer ${token}`}});
+  loadHistory();
+}
+
+async function downloadHistory(){
+  try{
+    const res=await fetch(`${API}/history`,{headers:{"Authorization":`Bearer ${token}`}});
+    const d=await res.json();
+    if(!d.history.length){alert("No history to export");return;}
+    const txt=d.history.map(h=>`Q: ${h.question}\nA: ${h.answer}\nSources: ${h.sources.join(", ")}\nTime: ${h.created_at}\n${"─".repeat(50)}`).join("\n\n");
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(new Blob([txt],{type:"text/plain"}));
+    a.download="docrag_history.txt";a.click();
+  }catch(e){alert("Export failed");}
+}
+
+// ── PROFILE ───────────────────────────────────────
+async function saveProfile(){
+  const name=document.getElementById("edit-name").value.trim();
+  const pass=document.getElementById("edit-pass").value.trim();
+  const err=document.getElementById("prof-err"),ok=document.getElementById("prof-ok");
+  err.style.display="none";ok.style.display="none";
+  if(!name){showErr(err,"Name cannot be empty");return;}
+  try{
+    const body={name};
+    if(pass){if(pass.length<6){showErr(err,"Password min 6 chars");return;}body.password=pass;}
+    const res=await fetch(`${API}/profile`,{method:"PUT",headers:{"Content-Type":"application/json","Authorization":`Bearer ${token}`},body:JSON.stringify(body)});
+    const d=await res.json();
+    if(!res.ok)throw new Error(d.detail||"Failed");
+    userName=d.name;
+    document.getElementById("uname").textContent=userName;
+    document.getElementById("user-av").textContent=userName.slice(0,2).toUpperCase();
+    document.getElementById("prof-av").textContent=userName.slice(0,2).toUpperCase();
+    document.getElementById("prof-name").textContent=userName;
+    document.getElementById("welcome-name").textContent=userName;
+    document.getElementById("edit-pass").value="";
+    ok.textContent="✓ Profile updated!";ok.style.display="block";
+    setTimeout(()=>ok.style.display="none",3000);
+  }catch(e){showErr(err,e.message);}
+}
+
+function showErr(el,msg){el.textContent=msg;el.style.display="block";}
+
+// ── DRAG & DROP ───────────────────────────────────
+const zone=document.getElementById("upload-zone");
+if(zone){
+  zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag")});
+  zone.addEventListener("dragleave",()=>zone.classList.remove("drag"));
+  zone.addEventListener("drop",e=>{
+    e.preventDefault();zone.classList.remove("drag");
+    const inp=document.getElementById("file-input");
+    inp.files=e.dataTransfer.files;handleUpload({target:inp});
+  });
+}
+// Auto-login if a saved session exists
+const savedToken=localStorage.getItem("docrag_token");
+if(savedToken){
+  token=savedToken;
+  userEmail=localStorage.getItem("docrag_email")||"";
+  userName=localStorage.getItem("docrag_name")||"";
+  boot();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+python-multipart
+PyPDF2
+chromadb
+groq
+python-jose[cryptography]
+passlib[bcrypt]
+sqlalchemy
+python-dotenv
